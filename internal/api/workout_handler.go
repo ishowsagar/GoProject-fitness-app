@@ -1,6 +1,8 @@
 package api
 
 import (
+	"encoding/json"
+	"fem/internal/store"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,11 +12,14 @@ import (
 
 // types declaration
 type WorkoutHandler struct {
+	workstore store.WorkoutStore
 
 }
 
-func NewWorkoutHandler() *WorkoutHandler {
-return &WorkoutHandler{}
+func NewWorkoutHandler(workoutStore store.WorkoutStore) *WorkoutHandler {
+return &WorkoutHandler{
+	workstore: workoutStore,
+}
 }
 
 //! methods --> have base method WorkoutHandler ( points to type which persists changes across app) --> other called via base this one	
@@ -37,6 +42,23 @@ fmt.Fprintf(w,"this is the workout id : %d\n",workoutID)
 }
 
 func (wh *WorkoutHandler) HandleCreateWorkout (w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintf(w,"create a workout")
+var workout  store.Workout // * follows type def of this struct
+err := json.NewDecoder(req.Body).Decode(&workout)
+
+if err !=nil {
+	fmt.Println(err)
+	http.Error(w,"failed to create workout",http.StatusInternalServerError)
+	return
+}
+
+createWorkout,err := wh.workstore.CreateWorkout(&workout)
+if err !=nil {
+	fmt.Println(err)
+	http.Error(w,"failed to create workout",http.StatusInternalServerError)
+	return
+}
+
+w.Header().Set("Content-type","application/json")
+json.NewEncoder(w).Encode(createWorkout)
 
 }
