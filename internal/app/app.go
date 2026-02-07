@@ -1,0 +1,23 @@
+package app
+
+import (
+	"log"
+	"os"
+) 
+
+//  types declarement
+type Application struct {
+	Logger *log.Logger
+}
+
+func NewApplication() (*Application,error) {
+
+	logger := log.New(os.Stdout,"",log.Ldate | log.Ltime) 
+
+	app := &Application{  // taking instance of type struct
+		Logger : logger,
+	}
+	
+	return app,nil // as we had to return both things as we specified in the return type of the function
+
+}
