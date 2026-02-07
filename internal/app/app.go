@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fem/internal/api"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,14 +11,21 @@ import (
 //  types declarement
 type Application struct {
 	Logger *log.Logger
+	WorkoutHandler *api.WorkoutHandler
 }
 
 func NewApplication() (*Application,error) {
 
 	logger := log.New(os.Stdout,"",log.Ldate | log.Ltime) 
 
+	// ! Our store will go here
+
+	// ! Our Handlers will go here
+	workoutHandler := api.NewWorkoutHandler()
+	
 	app := &Application{  // taking instance of type struct
 		Logger : logger,
+		WorkoutHandler: workoutHandler,
 	}
 	
 	return app,nil // as we had to return both things as we specified in the return type of the function
