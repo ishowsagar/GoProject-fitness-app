@@ -51,9 +51,9 @@ Inside that method, pg refers to your store instance
 
 YES! You got it! 🎯 Let me confirm your understanding:
 
-✅ Define a struct → type PostgresWorkoutStore struct { db *sql.DB }
+✅ Define a struct → type PostgresWorkoutStore struct { db \*sql.DB }
 
-✅ 3 methods point to/use that struct → They all have (pg *PostgresWorkoutStore) receiver
+✅ 3 methods point to/use that struct → They all have (pg \*PostgresWorkoutStore) receiver
 
 ✅ Function creates and returns instance → NewPostgresWorkoutStore(pgDb) returns &PostgresWorkoutStore{db: pgDb}
 
@@ -72,6 +72,7 @@ In your code:
 Inside each method, pg refers to whatever instance you called it on (in this case, workoutStore).
 
 You nailed the concept! 🚀
+
 ## What is a Method Receiver?
 
 The syntax `func (pg *PostgresWorkoutStore) GetWorkoutByID(...)` makes this a **method** instead of a regular function.
