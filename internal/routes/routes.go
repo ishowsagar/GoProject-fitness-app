@@ -17,10 +17,13 @@ func SetupRoutes(app *app.Application) *chi.Mux {
 
 	// routes
 	r.Get("/health",app.HealthCheck)
+	// ! whatever type struct they was connected to --> accessed via same struct
 	r.Get("/workouts/{id}",app.WorkoutHandler.HandleWorkoutByID)
 	r.Post("/workouts",app.WorkoutHandler.HandleCreateWorkout)
 	r.Put("/workouts/{id}",app.WorkoutHandler.HandleUpdateWorkoutByID)
 	r.Delete("/workouts/{id}",app.WorkoutHandler.HandleDeleteWorkoutByID)
+
+	r.Post("/users",app.UserHandler.HandleRegisterUser)
 	return r
 
 }

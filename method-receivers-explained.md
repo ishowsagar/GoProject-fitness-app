@@ -36,6 +36,56 @@
 - **Your code decides when to call methods - interface just ensures the methods exist**
 - **Think: Interface = job description, Struct with methods = qualified candidate who meets requirements**
 
+## How to Access Methods on Struct Types
+
+**Key Pattern:**
+
+```
+instance.MethodName()
+   ↓         ↓
+  the     method that
+ struct   belongs to
+instance  that struct type
+```
+
+**Real Example from Our Code:**
+
+1. **Define methods on a struct type:**
+
+```go
+// The struct type
+type WorkoutHandler struct {
+    workstore store.WorkoutStore
+    logger *log.Logger
+}
+
+// Methods that belong to WorkoutHandler type
+func (wh *WorkoutHandler) HandleWorkoutByID(w, req) { ... }
+func (wh *WorkoutHandler) HandleCreateWorkout(w, req) { ... }
+```
+
+2. **Create an instance of the struct:**
+
+```go
+// In app setup
+workoutHandler := NewWorkoutHandler(workoutStore, logger)
+```
+
+3. **Access methods through the instance:**
+
+```go
+// In routes.go - accessing via the instance
+app.WorkoutHandler.HandleWorkoutByID    // ✅ calling on instance
+app.WorkoutHandler.HandleCreateWorkout  // ✅ calling on instance
+```
+
+**Important Distinctions:**
+
+- Methods belong to the **TYPE** (WorkoutHandler)
+- You call them on an **INSTANCE** of that type (app.WorkoutHandler)
+- The instance keeps the data (workstore, logger) that the methods use
+- Each instance can have different data but uses the same methods
+
 # Structure clarification:
 
 PostgresWorkoutStore is the TYPE (blueprint)

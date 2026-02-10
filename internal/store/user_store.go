@@ -2,8 +2,10 @@ package store
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
 	_ "golang.org/x/crypto/bcrypt"
 )
 
@@ -11,6 +13,30 @@ import (
 type password struct {
 	plaintText *string
 	hash       []byte
+}
+
+// * password hashing func to be exported for use in user validations
+func ( p *password) Set(plainTextPass string)error {
+	hash,err := bcrypt.GenerateFromPassword([]byte(plainTextPass),12) // takes what to hash, hashingCostUnits
+	if err != nil {
+		return err
+	}
+	p.plaintText = &plainTextPass
+	p.hash = hash
+	return nil
+} 
+
+func (p *password) Matches (plainTextPass string) (bool,error) {
+	err := bcrypt.CompareHashAndPassword(p.hash,[]byte(plainTextPass)) // passing in hashed pass n normal inputted
+	if err != nil {
+		switch {
+		case errors.Is(err,bcrypt.ErrMismatchedHashAndPassword) :
+			return false,nil
+			default :
+			return false,nil
+		}
+	}
+	return true,nil
 }
 
 type User struct { // LOGGED IN USER
@@ -27,7 +53,8 @@ type PostgresUserStore struct {
 	db *sql.DB // * so changes stay persistent across the db N server to the client
 }
 
-// function that returns instance of the type Struct
+// ? -  function that returns instance of the type Struct 
+// - creates instance of struct so whoever will references to it, the connection is shared among all meths
 func NewPostUserStore(db *sql.DB) *PostgresUserStore {
 	return &PostgresUserStore{
 		db : db,
