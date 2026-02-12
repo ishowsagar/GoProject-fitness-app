@@ -184,8 +184,9 @@ func (pg *PostgresWorkoutStore) UpdateWorkout(workout *Workout) error {
 	return tx.Commit()
 }
 
+//! DeleteWorkout --> removes workout and its entries (CASCADE handles entries)
 func (pg *PostgresWorkoutStore) DeleteWorkout(id int64) error {
-	//  query for delete
+	//* query for delete
 	query := `
 	DELETE FROM workouts
 	where id=$1
@@ -195,12 +196,13 @@ func (pg *PostgresWorkoutStore) DeleteWorkout(id int64) error {
 	if err!= nil {
 		return err
 	}
-	// if any row is affected from failed operation
+	//* check if any rows were actually deleted
 	rowsAffected,err := result.RowsAffected()
 		if err!= nil {
 		return err
 	}
 
+	//? if 0 rows affected, workout didn't exist
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
@@ -210,6 +212,8 @@ func (pg *PostgresWorkoutStore) DeleteWorkout(id int64) error {
 }
 
 
+//! GetWorkoutOwner --> returns user ID who owns the workout
+//? used for authorization checks before update/delete
 func (pg *PostgresWorkoutStore) GetWorkoutOwner(workoutID int64) (int,error) {
 		var userID int
 		
@@ -219,6 +223,7 @@ func (pg *PostgresWorkoutStore) GetWorkoutOwner(workoutID int64) (int,error) {
 			where id=$1
 		`
 
+		//* fetch owner's user ID
 		err := pg.db.QueryRow(query,workoutID).Scan(&userID)
 		if err != nil {
 			return 0,err

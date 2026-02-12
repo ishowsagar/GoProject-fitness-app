@@ -10,82 +10,100 @@ import (
 	"strings"
 )
 
-// type declaration
-type contextKey string
+//! type declaration
+type contextKey string //* custom type for context keys to avoid collisions
 type UserMiddleware struct {
-	UserStore store.UserStore
+	UserStore store.UserStore //* needed to fetch user from token
 }
 
 
-// ? - to avoid issues with dataType, that's why explictidly declared const for the type	
+//! UserContextKey --> unique key for storing user in request context
+//? using custom type prevents accidental key conflicts with other middleware
 const UserContextKey = contextKey("user") 
 
 
 
-//! functions having *req --> coz we are gonna modify it --> injects the context to the *req
+//! SetUser --> injects user into request context for downstream handlers
+//! Takes pointer because we modify the request by adding context
 func SetUser(r *http.Request,user *store.User) *http.Request {
+	//* create new context with user value attached
 	contxt := context.WithValue(r.Context(),UserContextKey,user)
-	return r.WithContext(contxt)
+	return r.WithContext(contxt) //* return modified request
 }
 
-//! get context attached user as client
+//! GetUser --> extracts user from request context
+//! Panics if user not found (should never happen after Authenticate middleware)
 func GetUser(r *http.Request) *store.User {
-	user,ok := r.Context().Value(UserContextKey).(*store.User) //* pulling key from context from req and ensuring if it matces *store.User
+	//* extract value from context and type assert to *store.User
+	user,ok := r.Context().Value(UserContextKey).(*store.User)
 	
-	// if there is some sort of bad actor call
+	//? if type assertion fails, middleware wasn't run properly
 	if !ok {
-		panic("missing user in request") //* as that context with key would been injected by above func that sets the context
+		panic("missing user in request") //* critical error - indicates middleware chain broken
 	}
 
 	return user
 }
 
 
-// mw fnc that do its and call the next func that proccesses rea --> this is like check fnc if passed calls the requested fnc
+//! Authenticate --> middleware that validates Bearer token from Authorization header
+//! Sets user in context (either authenticated user or AnonymousUser)
 func (um *UserMiddleware) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// processing req via this passed anony func
+		//* tell caches that response varies by Authorization header
 		w.Header().Add("Vary","Authorization")
+		//* extract Authorization header from request
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
+			//* no token provided, set as anonymous user
 			r = SetUser(r,store.AnonymousUser)
-			//! imp --> this { next.ServeHttp(passing rWriter,req)} calls the next function in the lineup chain
+			//* call next handler in chain
 			next.ServeHTTP(w,r)
 			return
 		}
 
-		headerParts := strings.Split(authHeader," ") // Bearer token --> need to learn more about this bearer thing
+		//* split "Bearer TOKEN" into ["Bearer", "TOKEN"]
+		headerParts := strings.Split(authHeader," ")
 		if len(headerParts) != 2 || headerParts[0] != "Bearer" {
+			//? header format wrong (should be: "Bearer <token>")
 			utils.WriteJson(w,http.StatusUnauthorized,utils.Envelope{"error":"invalid authorization header"})
 			return 
 		}
 
-		// * we know other than that there will be a token there
+		//* extract token string (second part after "Bearer ")
 		token := headerParts[1]
+		//* lookup user by token hash in database
 		user,err := um.UserStore.GetUserToken(tokens.ScopeAuth,token)
 		if err != nil {
+			//? database error or token not found
 			utils.WriteJson(w,http.StatusUnauthorized,utils.Envelope{"error":"invalid token"})
 			return
 		}
 		if user == nil {
+			//? token expired or doesn't exist
 			utils.WriteJson(w,http.StatusUnauthorized,utils.Envelope{"error":"token has been expired or invalid"})
 			return
 		}
+		//* valid token! attach authenticated user to request context
 		r = SetUser(r,user)
-		next.ServeHTTP(w,r)
+		next.ServeHTTP(w,r) //* call next handler with authenticated user
 	})
 }
 
 
+//! RequireUser --> ensures user is authenticated (not anonymous)
+//! Must be used after Authenticate middleware
 func (um *UserMiddleware) RequireUser(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		//* get user from context (set by Authenticate middleware)
 		user := GetUser(r)
 
 		if user.IsAnonymousUser() {
+			//? user didn't provide valid token
 			utils.WriteJson(w, http.StatusUnauthorized, utils.Envelope{"error": "you must be logged in to access this route"})
 			return
 		}
-		// ? - if incoming user is not anony and has context attched (cause getUser returns user if r.Context has that key)
+		//* user is authenticated, proceed to handler
 		next.ServeHTTP(w, r)
 	})
 }

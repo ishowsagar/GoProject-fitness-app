@@ -16,11 +16,12 @@ import (
 
 // types declaration
 type WorkoutHandler struct {
-	workstore store.WorkoutStore
-	logger *log.Logger
+	workstore store.WorkoutStore //* interface --> allows swapping db implementations without changing handler logic
+	logger *log.Logger //* for logging errors and important events
 
 }
 
+// ? - constructor function that returns instance of WorkoutHandler with initialized fields
 func NewWorkoutHandler(workoutStore store.WorkoutStore,logger *log.Logger) *WorkoutHandler {
 return &WorkoutHandler{
 	workstore: workoutStore,
@@ -29,9 +30,11 @@ return &WorkoutHandler{
 }
 
 //! methods --> have base method WorkoutHandler ( points to type which persists changes across app) --> other called via base this one	
+//! GET /workouts/{id} --> fetches single workout by its ID
 func (wh *WorkoutHandler) HandleWorkoutByID(w http.ResponseWriter, req *http.Request) {
 // extracting id from url via chi
 
+//* reading workout ID from URL path parameter
 workoutID,err := utils.ReadIDParam(req)
 if err != nil {
 	wh.logger.Printf("Error : readIdParam : %v ",err)
@@ -52,8 +55,10 @@ utils.WriteJson(w,http.StatusOK,utils.Envelope{"workout":workout})
 
 
 // ! CreateWorkout Method
+//! POST /workouts --> creates new workout for authenticated user
 func (wh *WorkoutHandler) HandleCreateWorkout (w http.ResponseWriter, req *http.Request) {
-var workout  store.Workout // * follows type def of this struct
+var workout  store.Workout //* follows type def of this struct
+//* decode incoming JSON body into workout struct
 err := json.NewDecoder(req.Body).Decode(&workout)
 
 if err !=nil {
@@ -62,14 +67,14 @@ utils.WriteJson(w,http.StatusBadRequest,utils.Envelope{"error" : "Invalid reques
 	return
 }
 
-//  Current live user with get user which is fetched from context using getUser method
+//! Current live user with get user which is fetched from context using getUser method
 currentUser := middleware.GetUser(req)
 if currentUser == nil || currentUser == store.AnonymousUser {
 	utils.WriteJson(w,http.StatusBadRequest,utils.Envelope{"error" : "you must be logged in"})
 	return
 }
 
-// assinig that fetched id to workout
+//* assigning authenticated user's ID to workout --> links workout ownership
 workout.UserID = currentUser.ID
 
 createWorkout,err := wh.workstore.CreateWorkout(&workout)
@@ -83,9 +88,11 @@ utils.WriteJson(w,http.StatusCreated,utils.Envelope{"workout" : createWorkout})
 }
 
 // ! UpdateWorkout Method
+//! PUT /workouts/{id} --> updates existing workout (only if user owns it)
 func (wh *WorkoutHandler) HandleUpdateWorkoutByID(w http.ResponseWriter,req *http.Request) {
 	// extracting id from url via chi
 
+//* reading workout ID from URL path parameter
 workoutID,err := utils.ReadIDParam(req)
 if err!= nil {
 	wh.logger.Printf("Error : readIdParam : %v ",err)
@@ -105,6 +112,7 @@ if existingWorkout == nil {
 
 // found existing workout
 
+//* using pointers (*string, *int) --> allows partial updates (nil = no change, value = update)
 var updateWorkoutRequest struct {
 		Title           *string              `json:"title"`
 		Description     *string              `json:"description"`
@@ -121,7 +129,7 @@ var updateWorkoutRequest struct {
 		return
 	}
 
-	// if coming body has title available
+	//* only update fields that were provided in request --> allows partial updates
 	if updateWorkoutRequest.Title != nil {
 		existingWorkout.Title = *updateWorkoutRequest.Title
 	}
@@ -146,6 +154,7 @@ var updateWorkoutRequest struct {
 	return
 	}
 
+	//* fetch who owns this workout from db
 	workoutOwner,err := wh.workstore.GetWorkoutOwner(workoutID)
 	if err != nil {
 		if errors.Is(err,sql.ErrNoRows) {
@@ -156,7 +165,7 @@ var updateWorkoutRequest struct {
 		return
 	}
 
-	// !current user who is live on but isn't this workout owner ... trying to alternate someone's workout
+	//! Authorization check: current user who is live on but isn't this workout owner ... trying to alternate someone's workout
 	if workoutOwner != currentUser.ID {
 		utils.WriteJson(w,http.StatusForbidden,utils.Envelope{"error" : "you are not authorized to update this workout"})
 		return
@@ -177,29 +186,32 @@ var updateWorkoutRequest struct {
 	utils.WriteJson(w,http.StatusOK,utils.Envelope{"workout":existingWorkout})
 }
 
+//! DELETE /workouts/{id} --> deletes workout (only if user owns it)
 func (wh *WorkoutHandler) HandleDeleteWorkoutByID(w http.ResponseWriter, req *http.Request)  {
-	// extracting id from url via chi
-paramsWorkoutID := chi.URLParam(req,"id") // passing req and "slug" being route params
+	//* extracting id from url via chi
+	paramsWorkoutID := chi.URLParam(req,"id") // passing req and "slug" being route params
 
-// if id not found on url params
-if paramsWorkoutID == "" {
-	http.NotFound(w,req)
-	return
-}
+	// if id not found on url params
+	if paramsWorkoutID == "" {
+		http.NotFound(w,req)
+		return
+	}
 
-workoutID,err := strconv.ParseInt(paramsWorkoutID,10,64)
-if err != nil {
-http.NotFound(w,req)
-return
-}  
+	//* convert string ID to int64 for db query
+	workoutID,err := strconv.ParseInt(paramsWorkoutID,10,64)
+	if err != nil {
+		http.NotFound(w,req)
+		return
+	}  
 
-	//!  Current live user with get user which is fetched from context using getUser method
+	//! Current live user with get user which is fetched from context using getUser method
 	currentUser := middleware.GetUser(req)
 	if currentUser == nil || currentUser == store.AnonymousUser {
 	utils.WriteJson(w,http.StatusBadRequest,utils.Envelope{"error" : "you must be logged in to update"})
 	return
 	}
 
+	//* verify workout exists and get its owner
 	workoutOwner,err := wh.workstore.GetWorkoutOwner(workoutID)
 	if err != nil {
 		if errors.Is(err,sql.ErrNoRows) {
@@ -210,7 +222,7 @@ return
 		return
 	}
 
-	// if current user is not owner of that workout the client is trying to modify it
+	//! Authorization check: if current user is not owner of that workout the client is trying to modify it
 	if workoutOwner != currentUser.ID {
 		utils.WriteJson(w,http.StatusForbidden,utils.Envelope{"error" : "you are not authorized to delete this workout"})
 		return
@@ -218,6 +230,7 @@ return
 
 
 
+//* perform delete operation in database
 err = wh.workstore.DeleteWorkout(workoutID)
 if err == sql.ErrNoRows {
 http.Error(w,"Workout not found",http.StatusNotFound)
@@ -228,6 +241,7 @@ http.Error(w,"error deleting the workout", http.StatusInternalServerError)
 return
 }  
 
+//* 204 No Content --> successful deletion, no response body needed
 w.WriteHeader(http.StatusNoContent)
 }
 

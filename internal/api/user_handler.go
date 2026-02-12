@@ -10,30 +10,33 @@ import (
 	"regexp"
 )
 
-//  types declaration
+//! types declaration
+//! registerUserRequest --> incoming JSON payload for user registration
 type registerUserRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
-	Bio      string `json:"bio"` 
+	Username string `json:"username"` //* unique username for login
+	Password string `json:"password"` //* plaintext password (will be hashed)
+	Email    string `json:"email"` //* user email address
+	Bio      string `json:"bio"` //* optional user bio
 }
 
 type UserHandler struct {
-	userStore store.UserStore
-	logger *log.Logger
+	userStore store.UserStore //* database operations for users
+	logger *log.Logger //* for error logging
 }
 
+//! NewUserHandler --> constructor that creates user handler instance
 func NewUserHandler(userStore store.UserStore, logger *log.Logger) *UserHandler {
-	// ! return instace of struct --> so this typw now could be accessible
-	// * All those methods who use this as injected agrs , will be accessible through the type dot notation
+	//* return instance of struct --> methods can now access userStore and logger
 	return &UserHandler{
 		userStore: userStore,
 		logger: logger,
 	}
 }
 
+//! validateUserRegisterRequest --> server-side validation before saving to database
+//? prevents invalid data from entering the system
 func (h *UserHandler) validateUserRegisterRequest (regUser *registerUserRequest) error {
-	// ? - server side validation for incoming user data from signups
+	//* checking if username is provided
 	if regUser.Username == "" {
 	return	errors.New("Username is required")
 	}
@@ -50,10 +53,10 @@ func (h *UserHandler) validateUserRegisterRequest (regUser *registerUserRequest)
 		return errors.New("password is required")
 	}
 
-	//! regex tests
+	//! regex validation for email format
 	emailRegexPattern := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 	if !emailRegexPattern.MatchString(regUser.Email)  {
-		// passing in email which to test 
+		//* test if email matches standard email pattern
 		return errors.New("Invalid email format")
 	} 
 
@@ -61,9 +64,11 @@ func (h *UserHandler) validateUserRegisterRequest (regUser *registerUserRequest)
 
 }
 
+//! HandleRegisterUser --> POST /users endpoint for creating new user accounts
 func (h *UserHandler) HandleRegisterUser(w http.ResponseWriter, req *http.Request) {
-	var r registerUserRequest
+	var r registerUserRequest //* holds incoming JSON data
 
+	//* decode JSON body into struct
 	err:= json.NewDecoder(req.Body).Decode(&r)
 	if err!= nil {
 		h.logger.Printf("Error : decoding Register request : %V ",err)
@@ -78,6 +83,7 @@ func (h *UserHandler) HandleRegisterUser(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
+	//* create User struct with validated data
 	user := &store.User{
 		Username: r.Username,
 		Email: r.Email,
@@ -86,7 +92,7 @@ func (h *UserHandler) HandleRegisterUser(w http.ResponseWriter, req *http.Reques
 		user.Bio = r.Bio
 	}
 
-	// dealing with client's pass with our Password validation func that we have imported
+	//! hash the password using bcrypt (cost factor 12) - NEVER store plaintext passwords
 	err = user.PasswordHash.Set(r.Password)
 	if err != nil {
 		h.logger.Printf("ERROR : hashing password %v ",err)
@@ -94,6 +100,7 @@ func (h *UserHandler) HandleRegisterUser(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
+	//* save user to database
 	err = h.userStore.CreateUser(user)
 	if err != nil {
 		h.logger.Printf("ERROR : registering user %v ",err)
@@ -101,7 +108,7 @@ func (h *UserHandler) HandleRegisterUser(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	// * successfully created the user
+	//* 201 Created response with user data (password hash is excluded via json:"-" tag)
 		utils.WriteJson(w,http.StatusCreated,utils.Envelope{"user":user })
 
 }
