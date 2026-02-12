@@ -11,8 +11,8 @@ import (
 
 // ! setupTestDB --> prepares fresh test database for each test
 func setupTestDB(t *testing.T) *sql.DB {
-	// * connecting to test db on port 5433 (separate from dev db on 5432)
-	db,err := sql.Open("pgx","host=localhost user=postgres password=postgres dbname=postgres port=5433 sslmode=disable")
+	// * connecting to test db on port 5500 (separate from dev db on 5445)
+	db,err := sql.Open("pgx","host=localhost user=postgres password=postgres dbname=postgres port=5500 sslmode=disable")
 	if err!= nil {
 		t.Fatalf("opening test db : %v",err)
 	}

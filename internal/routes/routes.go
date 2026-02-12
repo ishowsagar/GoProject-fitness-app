@@ -16,12 +16,20 @@ func SetupRoutes(app *app.Application) *chi.Mux {
 	r := chi.NewRouter()
 
 	// routes
+
+	// attaching mw for token auth with chi r.Group method
+	r.Group(func (r chi.Router) {
+		r.Use(app.Middleware.Authenticate)
+		// ! whatever type struct they was connected to --> accessed via same struct
+		// after executing mw fnc --> we pass group of routes where we want them to execute before these
+		r.Get("/workouts/{id}",app.Middleware.RequireUser(app.WorkoutHandler.HandleWorkoutByID)) //* checks user if anon or even has context key before before executing the requested func call
+		r.Post("/workouts",app.Middleware.RequireUser(app.WorkoutHandler.HandleCreateWorkout))
+		r.Put("/workouts/{id}",app.Middleware.RequireUser(app.WorkoutHandler.HandleUpdateWorkoutByID))
+		r.Delete("/workouts/{id}",app.Middleware.RequireUser(app.WorkoutHandler.HandleDeleteWorkoutByID))
+	})
+
 	r.Get("/health",app.HealthCheck)
 	// ! whatever type struct they was connected to --> accessed via same struct
-	r.Get("/workouts/{id}",app.WorkoutHandler.HandleWorkoutByID)
-	r.Post("/workouts",app.WorkoutHandler.HandleCreateWorkout)
-	r.Put("/workouts/{id}",app.WorkoutHandler.HandleUpdateWorkoutByID)
-	r.Delete("/workouts/{id}",app.WorkoutHandler.HandleDeleteWorkoutByID)
 
 	r.Post("/users",app.UserHandler.HandleRegisterUser)
 	r.Post("/tokens/authentication",app.TokenHandler.HandleCreateToken)

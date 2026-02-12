@@ -3,6 +3,7 @@ package app
 import (
 	"database/sql"
 	"fem/internal/api"
+	"fem/internal/middleware"
 	"fem/internal/store"
 	"fem/migrations"
 	"fmt"
@@ -16,7 +17,8 @@ type Application struct {
 	Logger *log.Logger
 	WorkoutHandler *api.WorkoutHandler
 	UserHandler *api.UserHandler 
-	TokenHandler *api.TokenHandler 
+	TokenHandler *api.TokenHandler
+	Middleware middleware.UserMiddleware 
 	DB *sql.DB
 }
 
@@ -46,12 +48,14 @@ func NewApplication() (*Application,error) {
 	workoutHandler := api.NewWorkoutHandler(workoutStore,logger)
 	userHandler := api.NewUserHandler(userStore,logger)
 	tokenHandler := api.NewTokenHandler(tokenStore,userStore,logger)
+	mwHandler := middleware.UserMiddleware{UserStore: userStore}
 
 	app := &Application{  // taking instance of type struct - app storing handlers	 n
 		Logger : logger,
 		WorkoutHandler: workoutHandler,
 		UserHandler: userHandler,
 		TokenHandler: tokenHandler,
+		Middleware : mwHandler,
 		DB: pgDb,
 	}
 	

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"time"
@@ -49,6 +50,12 @@ type User struct { // LOGGED IN USER
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+//* Determines which user is coming -- Auth purpose
+var AnonymousUser = &User{} //* adding empty User type struct saved to this variable
+func (u *User) IsAnonymousUser() bool {
+	return u == AnonymousUser // checking if incoming client user matches the anony type -- when struct is empty
+}
+
 type PostgresUserStore struct {
 	db *sql.DB // * so changes stay persistent across the db N server to the client
 }
@@ -66,7 +73,8 @@ type UserStore interface {
 	CreateUser(*User) error
 	GetUserByUsername(username string) (*User,error)
 	UpdateUser(*User) error
-}
+	GetUserToken(scope string,tokenPlainText string) (*User, error)
+ }
 
 //! CREATEUSER METHOD -  directly access type PUsrStore
 func ( s *PostgresUserStore) CreateUser(user *User) error {
@@ -139,4 +147,44 @@ func (s *PostgresUserStore) UpdateUser(user *User) error {
 	}
 
 	return nil
+}
+
+// !auth tokenzation
+func (s *PostgresUserStore) GetUserToken(scope string,plaintextpassword string) (*User,error) {
+	tokenHash := sha256.Sum256([]byte(plaintextpassword)) //* get hashed pass using sha256 salt
+
+	query := `
+	 Select u.id, u.username, u.email,u.password_hash, u.bio, u.created_at, u.updated_at 
+	 from users u
+	 INNER JOIN token t
+	 ON
+	 t.user_id = u.id
+	 WHERE
+	 t.hash=$1 AND t.scope=$2 AND t.expiry > $3
+	`
+// intializing instance of User struct but with these fields only
+	user := &User{
+		PasswordHash: password{},
+	}
+
+	err := s.db.QueryRow(query,tokenHash[:],scope,time.Now()).Scan(
+		// scaaning values from this query --> accessing n implementing those
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.PasswordHash.hash,
+		&user.Bio,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows{
+		// if got nothing from the query
+		return nil,nil
+	}
+	if err != nil {
+		return nil,err
+	}
+
+	return nil,err
 }
