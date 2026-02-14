@@ -4,23 +4,43 @@ import (
 	"database/sql"
 	"fmt"
 	"io/fs"
+	"os"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/pressly/goose/v3"
 )
 
+//! getEnv --> helper function to get environment variable with fallback
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
 //! Open --> establishes connection to PostgreSQL database
-//! Using port 5445 (not 5432) to avoid Windows port reservation conflicts
+//! Using port 5445 locally (not 5432) to avoid Windows port reservation conflicts
+//! In Docker, it uses environment variables and connects to port 5432
 func Open() (*sql.DB, error) {
+	//* get database configuration from environment variables with fallbacks
+	host := getEnv("DB_HOST", "localhost")
+	port := getEnv("DB_PORT", "5445") //* 5445 for local Windows, 5432 in Docker
+	user := getEnv("DB_USER", "postgres")
+	password := getEnv("DB_PASSWORD", "postgres")
+	dbname := getEnv("DB_NAME", "postgres")
+
 	//* connection string with all database credentials
-	db,err := sql.Open("pgx","host=localhost user=postgres password=postgres dbname=postgres port=5445 sslmode=disable")
+	connStr := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+		host, user, password, dbname, port)
+
+	db, err := sql.Open("pgx", connStr)
 
 	//? if caught any error while opening connection
 	if err != nil {
-		return nil,fmt.Errorf("db : open %w", err)
+		return nil, fmt.Errorf("db : open %w", err)
 	}
-	fmt.Println("Connected to the Database...")
-	return db,err //* return connection pool
+	fmt.Printf("Connected to the Database at %s:%s...\n", host, port)
+	return db, err //* return connection pool
 
 }
 

@@ -31,6 +31,16 @@ func NewTokenHandler(tokenStore store.TokenStore,userStore store.UserStore,logge
 	}
 }
 
+// func NewTokenHandler(tokenstore store.TokenStore,userStore store.UserStore,logger *log.Logger) *TokenHandler{
+// 	// return instance of TokenHandler type struct
+// 	return &TokenHandler{
+// 		tokenStore: tokenstore,
+// 		userStore: userStore,
+// 		logger : logger,
+
+// 	}
+// }
+
 //! HandleCreateToken --> POST /tokens/authentication (login endpoint)
 //! Validates credentials and returns authentication token
 func (h *TokenHandler) HandleCreateToken(w http.ResponseWriter,req *http.Request)  {

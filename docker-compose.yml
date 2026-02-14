@@ -1,6 +1,30 @@
 version: "3.8"
 
 services:
+  # Go Application with Air (Hot Reload)
+  app:
+    container_name: "fittrack-app"
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/app
+      - /app/tmp # Don't sync tmp directory
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=postgres
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - fittrack-network
+
+  # PostgreSQL Database
   db:
     container_name: "workoutDB"
     image: postgres:12.4-alpine
@@ -13,8 +37,10 @@ services:
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "postgres"
     restart: unless-stopped
+    networks:
+      - fittrack-network
 
-  # testing database : for running tests
+  # Testing Database (for running tests)
   test_db:
     container_name: "workoutDB_test"
     image: postgres:12.4-alpine
@@ -27,3 +53,9 @@ services:
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "postgres"
     restart: unless-stopped
+    networks:
+      - fittrack-network
+
+networks:
+  fittrack-network:
+    driver: bridge
