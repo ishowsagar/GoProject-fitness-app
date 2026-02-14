@@ -70,5 +70,5 @@ func NewApplication() (*Application,error) {
 //! HealthCheck --> simple endpoint to verify server is running
 //! GET /health --> returns status message
 func (a *Application) HealthCheck(w http.ResponseWriter,req *http.Request) {
-	fmt.Fprintf(w,"🏋️ FitTrack API is healthy and running with Docker + Air! 🔥\n") //* simple text response
+	fmt.Fprintf(w," 🦖FitTrack API is healthy 🪐 and running with Docker + Air! 🔥\n") //* simple text response
 }

@@ -26,7 +26,6 @@ func SetupRoutes(app *app.Application) *chi.Mux {
 
 	//! Public routes --> no authentication required
 	r.Get("/health",app.HealthCheck) //* health check endpoint
-
 	r.Post("/users",app.UserHandler.HandleRegisterUser) //* user registration
 	r.Post("/tokens/authentication",app.TokenHandler.HandleCreateToken) //* login / get auth token
 	return r //* return configured router
